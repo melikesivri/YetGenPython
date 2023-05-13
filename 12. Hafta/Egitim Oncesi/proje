@@ -1,0 +1,31 @@
+import requests
+from bs4 import BeautifulSoup
+import sqlite3
+
+# IMDb Top 100 sayfasından verileri çekmek için bir HTTP isteği yapma
+url = "https://www.imdb.com/chart/top/"
+response = requests.get(url)
+
+# BeautifulSoup kütüphanesi kullanarak sayfadaki verileri çekme
+soup = BeautifulSoup(response.text, 'html.parser')
+film_listesi = soup.select('tbody.lister-list tr')
+
+# Veritabanına bağlanma ve tablo oluşturma
+conn = sqlite3.connect('imdb_top100.db')
+cursor = conn.cursor()
+cursor.execute('''CREATE TABLE IF NOT EXISTS filmler 
+                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                   ad TEXT NOT NULL, 
+                   tarih INTEGER NOT NULL, 
+                   puan REAL NOT NULL)''')
+
+# Her bir film için verileri çekme ve veritabanına kaydetme
+for film in film_listesi:
+    ad = film.find('td', class_='titleColumn').find('a').get_text()
+    tarih = int(film.find('td', class_='titleColumn').find('span', class_='secondaryInfo').get_text()[1:-1])
+    puan = float(film.find('td', class_='ratingColumn').find('strong').get_text())
+    cursor.execute("INSERT INTO filmler (ad, tarih, puan) VALUES (?, ?, ?)", (ad, tarih, puan))
+
+# Değişiklikleri kaydetme ve veritabanı bağlantısını kapatma
+conn.commit()
+conn.close()
